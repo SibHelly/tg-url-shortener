@@ -11,20 +11,20 @@ import (
 )
 
 type Bot struct {
-	api         *tgbotapi.BotAPI
+	Api         *tgbotapi.BotAPI
 	actions     map[string]ActionFunc
 	callbacks   map[string]CallbackFunc
 	handlersMsg map[string]MessageFunc
 	userSession map[int64]string
 }
 
-type ActionFunc func(ctx context.Context, bot *tgbotapi.BotAPI, update tgbotapi.Update) error
-type CallbackFunc func(ctx context.Context, bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) error
+type ActionFunc func(ctx context.Context, bot *Bot, update tgbotapi.Update) error
+type CallbackFunc func(ctx context.Context, bot *Bot, callback *tgbotapi.CallbackQuery) error
 type MessageFunc func(ctx context.Context, bot *Bot, update tgbotapi.Update) error
 
 func NewBot(api *tgbotapi.BotAPI) *Bot {
 	return &Bot{
-		api:         api,
+		Api:         api,
 		userSession: make(map[int64]string),
 	}
 }
@@ -54,7 +54,7 @@ func (b *Bot) Run(ctx context.Context) error {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
-	updates := b.api.GetUpdatesChan(u)
+	updates := b.Api.GetUpdatesChan(u)
 
 	for {
 		select {
@@ -96,10 +96,10 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 
 	action = actionView
 
-	if err := action(ctx, b.api, update); err != nil {
+	if err := action(ctx, b, update); err != nil {
 		log.Printf("[ERROR] failed to execute action: %v", err)
 
-		if _, err := b.api.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Internal error")); err != nil {
+		if _, err := b.Api.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Internal error")); err != nil {
 			log.Printf("[ERROR] failed to send error message: %v", err)
 		}
 	}
@@ -115,12 +115,12 @@ func (b *Bot) handleCallback(ctx context.Context, callback *tgbotapi.CallbackQue
 
 	for prefix, handler := range b.callbacks {
 		if strings.HasPrefix(callback.Data, prefix) {
-			if err := handler(ctx, b.api, callback); err != nil {
+			if err := handler(ctx, b, callback); err != nil {
 				log.Printf("[ERROR] failed to execute callback: %v", err)
 
 				// Send error message to user
 				answerCallback := tgbotapi.NewCallback(callback.ID, "An error occurred")
-				if _, err := b.api.Request(answerCallback); err != nil {
+				if _, err := b.Api.Request(answerCallback); err != nil {
 					log.Printf("[ERROR] failed to answer callback: %v", err)
 				}
 			}
@@ -131,7 +131,7 @@ func (b *Bot) handleCallback(ctx context.Context, callback *tgbotapi.CallbackQue
 	// No handler found
 	log.Printf("[WARNING] no handler found for callback: %s", callback.Data)
 	answerCallback := tgbotapi.NewCallback(callback.ID, "Unknown action")
-	if _, err := b.api.Request(answerCallback); err != nil {
+	if _, err := b.Api.Request(answerCallback); err != nil {
 		log.Printf("[ERROR] failed to answer callback: %v", err)
 	}
 }
@@ -156,7 +156,7 @@ func (b *Bot) handleMessage(ctx context.Context, message *tgbotapi.Message) {
 				log.Printf("[ERROR] failed to execute message handler for step %s: %v", currentStep, err)
 				// В случае ошибки очищаем сессию
 				delete(b.userSession, message.Chat.ID)
-				if _, err := b.api.Send(tgbotapi.NewMessage(message.Chat.ID, "Произошла ошибка, сессия сброшена")); err != nil {
+				if _, err := b.Api.Send(tgbotapi.NewMessage(message.Chat.ID, "Произошла ошибка, сессия сброшена")); err != nil {
 					log.Printf("[ERROR] failed to send error message: %v", err)
 				}
 			}

@@ -13,7 +13,7 @@ import (
 
 // DeleteURLCallback handles delete button clicks
 func DeleteURLCallback(urlShorter service.UrlShorter) bot.CallbackFunc {
-	return func(ctx context.Context, bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) error {
+	return func(ctx context.Context, bot *bot.Bot, callback *tgbotapi.CallbackQuery) error {
 		alias := strings.TrimPrefix(callback.Data, "delete_")
 
 		// Delete URL
@@ -26,7 +26,7 @@ func DeleteURLCallback(urlShorter service.UrlShorter) bot.CallbackFunc {
 				CallbackQueryID: callback.ID,
 				Text:            "Failed to delete URL",
 			}
-			if _, err := bot.Request(answerCallback); err != nil {
+			if _, err := bot.Api.Request(answerCallback); err != nil {
 				log.Printf("[ERROR] failed to answer callback: %v", err)
 			}
 			return err
@@ -37,13 +37,13 @@ func DeleteURLCallback(urlShorter service.UrlShorter) bot.CallbackFunc {
 			CallbackQueryID: callback.ID,
 			Text:            "URL deleted successfully",
 		}
-		if _, err := bot.Request(answerCallback); err != nil {
+		if _, err := bot.Api.Request(answerCallback); err != nil {
 			log.Printf("[ERROR] failed to answer callback: %v", err)
 		}
 
 		// Удаляем сообщение
 		deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
-		if _, err := bot.Send(deleteMsg); err != nil {
+		if _, err := bot.Api.Send(deleteMsg); err != nil {
 			log.Printf("[ERROR] failed to delete message: %v", err)
 		}
 
@@ -52,12 +52,12 @@ func DeleteURLCallback(urlShorter service.UrlShorter) bot.CallbackFunc {
 }
 
 func GetAllInfoUrlCallback(urlShorter service.UrlShorter) bot.CallbackFunc {
-	return func(ctx context.Context, bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) error {
+	return func(ctx context.Context, bot *bot.Bot, callback *tgbotapi.CallbackQuery) error {
 		// Сначала отвечаем на callback query, чтобы убрать выделение кнопки
 		answerCallback := tgbotapi.CallbackConfig{
 			CallbackQueryID: callback.ID,
 		}
-		if _, err := bot.Request(answerCallback); err != nil {
+		if _, err := bot.Api.Request(answerCallback); err != nil {
 			log.Printf("[ERROR] failed to answer callback: %v", err)
 		}
 
@@ -69,7 +69,7 @@ func GetAllInfoUrlCallback(urlShorter service.UrlShorter) bot.CallbackFunc {
 
 			// Отправляем сообщение об ошибке
 			errorMsg := tgbotapi.NewMessage(callback.Message.Chat.ID, "Failed to get info about URL")
-			if _, err := bot.Send(errorMsg); err != nil {
+			if _, err := bot.Api.Send(errorMsg); err != nil {
 				log.Printf("Failed to send error message: %v", err)
 			}
 			return err
@@ -97,7 +97,7 @@ func GetAllInfoUrlCallback(urlShorter service.UrlShorter) bot.CallbackFunc {
 
 		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, builder.String())
 		msg.ParseMode = "Markdown"
-		if _, err := bot.Send(msg); err != nil {
+		if _, err := bot.Api.Send(msg); err != nil {
 			log.Printf("Failed to send URL message: %v", err)
 		}
 
@@ -107,12 +107,12 @@ func GetAllInfoUrlCallback(urlShorter service.UrlShorter) bot.CallbackFunc {
 
 // GetMyURLsHandler создает обработчик для команды /myurls .
 func GetMyURLsHandlerCallback(urlShorter service.UrlShorter) bot.CallbackFunc {
-	return func(ctx context.Context, bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) error {
+	return func(ctx context.Context, bot *bot.Bot, callback *tgbotapi.CallbackQuery) error {
 		// Получаем список URL
 		answerCallback := tgbotapi.CallbackConfig{
 			CallbackQueryID: callback.ID,
 		}
-		if _, err := bot.Request(answerCallback); err != nil {
+		if _, err := bot.Api.Request(answerCallback); err != nil {
 			log.Printf("[ERROR] failed to answer callback: %v", err)
 		}
 
@@ -120,14 +120,14 @@ func GetMyURLsHandlerCallback(urlShorter service.UrlShorter) bot.CallbackFunc {
 		if err != nil {
 			log.Printf("Failed to get URLs: %v", err)
 			msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "Failed to get your URLs. Please try again later.")
-			_, err := bot.Send(msg)
+			_, err := bot.Api.Send(msg)
 			return err
 		}
 
 		// Если список пуст
 		if len(urls) == 0 {
 			msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "You don't have any shortened URLs yet.")
-			_, err := bot.Send(msg)
+			_, err := bot.Api.Send(msg)
 			return err
 		}
 
@@ -152,7 +152,7 @@ func GetMyURLsHandlerCallback(urlShorter service.UrlShorter) bot.CallbackFunc {
 			msg.ParseMode = tgbotapi.ModeMarkdown
 			msg.ReplyMarkup = keyboard
 
-			if _, err := bot.Send(msg); err != nil {
+			if _, err := bot.Api.Send(msg); err != nil {
 				log.Printf("Failed to send URL message: %v", err)
 			}
 		}

@@ -13,20 +13,20 @@ import (
 
 // GetMyURLsHandler создает обработчик для команды /myurls .
 func GetMyURLsHandler(urlShorter service.UrlShorter) bot.ActionFunc {
-	return func(ctx context.Context, bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
+	return func(ctx context.Context, bot *bot.Bot, update tgbotapi.Update) error {
 		// Получаем список URL
 		urls, err := urlShorter.GetAll()
 		if err != nil {
 			log.Printf("Failed to get URLs: %v", err)
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Failed to get your URLs. Please try again later.")
-			_, err := bot.Send(msg)
+			_, err := bot.Api.Send(msg)
 			return err
 		}
 
 		// Если список пуст
 		if len(urls) == 0 {
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "You don't have any shortened URLs yet.")
-			_, err := bot.Send(msg)
+			_, err := bot.Api.Send(msg)
 			return err
 		}
 
@@ -51,7 +51,7 @@ func GetMyURLsHandler(urlShorter service.UrlShorter) bot.ActionFunc {
 			msg.ParseMode = tgbotapi.ModeMarkdown
 			msg.ReplyMarkup = keyboard
 
-			if _, err := bot.Send(msg); err != nil {
+			if _, err := bot.Api.Send(msg); err != nil {
 				log.Printf("Failed to send URL message: %v", err)
 				return err
 			}

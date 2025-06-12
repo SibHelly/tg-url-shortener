@@ -10,7 +10,7 @@ import (
 
 func CreateShortURLHandler(urlShorter service.UrlShorter) bot.ActionFunc {
 
-	return func(ctx context.Context, bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
+	return func(ctx context.Context, bot *bot.Bot, update tgbotapi.Update) error {
 
 		return nil
 	}

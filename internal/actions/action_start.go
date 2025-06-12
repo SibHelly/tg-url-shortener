@@ -11,7 +11,7 @@ import (
 
 // GetStartUrlShorterHandler создает обработчик для команды /start
 func StartUrlShorter() bot.ActionFunc {
-	return func(ctx context.Context, bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
+	return func(ctx context.Context, bot *bot.Bot, update tgbotapi.Update) error {
 		var builder strings.Builder
 
 		// Fixed Markdown syntax - each * must have a matching closing *
@@ -40,7 +40,7 @@ func StartUrlShorter() bot.ActionFunc {
 		msg.ParseMode = tgbotapi.ModeMarkdown
 		msg.ReplyMarkup = keyboard
 
-		if _, err := bot.Send(msg); err != nil {
+		if _, err := bot.Api.Send(msg); err != nil {
 			log.Printf("Failed to send URL message for start command: %v", err)
 			return err
 		}
