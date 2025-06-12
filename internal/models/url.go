@@ -34,12 +34,11 @@ type UrlInfo struct {
 }
 
 type ShortenRequest struct {
-	UserID      int64
 	URL         string
 	Alias       string
 	MaxVisits   int
 	ExpiresAt   *time.Time
 	Title       string
 	Description string
-	Step        string 
+	Step        string
 }

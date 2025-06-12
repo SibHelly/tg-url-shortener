@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -28,7 +29,27 @@ func NewURLService(apiBaseURL string) *UrlService {
 	}
 }
 
-func (s *UrlService) Create(models.Url) error {
+func (s *UrlService) Create(url models.Url) error {
+	var buf bytes.Buffer
+	err := json.NewEncoder(&buf).Encode(url)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/shorten", s.baseURL), &buf)
+	if err != nil {
+		return err
+	}
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("server returned status on create: %d", resp.StatusCode)
+	}
+
 	return nil
 }
 
@@ -45,7 +66,7 @@ func (s *UrlService) GetAll() ([]*models.Url, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server returned status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("server returned status on get all: %d", resp.StatusCode)
 	}
 
 	var apiResponse ApiResponse
@@ -74,7 +95,7 @@ func (s *UrlService) Delete(alias string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("server returned status: %d", resp.StatusCode)
+		return fmt.Errorf("server returned status on delete: %d", resp.StatusCode)
 	}
 
 	return nil

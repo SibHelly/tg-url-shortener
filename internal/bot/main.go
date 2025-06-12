@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SibHelly/TgUrlShorter/internal/models"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
@@ -15,17 +16,17 @@ type Bot struct {
 	actions     map[string]ActionFunc
 	callbacks   map[string]CallbackFunc
 	handlersMsg map[string]MessageFunc
-	userSession map[int64]string
+	UserSession map[int64]*models.ShortenRequest
 }
 
 type ActionFunc func(ctx context.Context, bot *Bot, update tgbotapi.Update) error
 type CallbackFunc func(ctx context.Context, bot *Bot, callback *tgbotapi.CallbackQuery) error
-type MessageFunc func(ctx context.Context, bot *Bot, update tgbotapi.Update) error
+type MessageFunc func(ctx context.Context, bot *Bot, update *tgbotapi.Update) error
 
 func NewBot(api *tgbotapi.BotAPI) *Bot {
 	return &Bot{
 		Api:         api,
-		userSession: make(map[int64]string),
+		UserSession: make(map[int64]*models.ShortenRequest),
 	}
 }
 
@@ -82,8 +83,8 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 
 	var action ActionFunc
 
-	if !update.Message.IsCommand() {
-		b.handleMessage(ctx, update.Message)
+	if !update.Message.IsCommand() && b.UserSession[update.Message.From.ID].Step != "" {
+		b.handleMessage(ctx, &update)
 		return
 	}
 
@@ -136,7 +137,7 @@ func (b *Bot) handleCallback(ctx context.Context, callback *tgbotapi.CallbackQue
 	}
 }
 
-func (b *Bot) handleMessage(ctx context.Context, message *tgbotapi.Message) {
+func (b *Bot) handleMessage(ctx context.Context, update *tgbotapi.Update) {
 	defer func() {
 		if p := recover(); p != nil {
 			log.Printf("[ERROR] panic recovered in msg: %v\n%s", p, string(debug.Stack()))
@@ -144,19 +145,16 @@ func (b *Bot) handleMessage(ctx context.Context, message *tgbotapi.Message) {
 	}()
 
 	// Проверяем, есть ли у пользователя активная сессия (шаг ввода)
-	if currentStep, ok := b.userSession[message.Chat.ID]; ok {
+	if currentStep, ok := b.UserSession[update.Message.From.ID]; ok {
 		// Если есть активная сессия, ищем обработчик для текущего шага
-		if handler, exists := b.handlersMsg[currentStep]; exists {
+		if handler, exists := b.handlersMsg[currentStep.Step]; exists {
 			// Создаем фейковый update для передачи в обработчик
-			update := tgbotapi.Update{
-				Message: message,
-			}
 
 			if err := handler(ctx, b, update); err != nil {
-				log.Printf("[ERROR] failed to execute message handler for step %s: %v", currentStep, err)
+				log.Printf("[ERROR] failed to execute message handler for step %s: %v", currentStep.Step, err)
 				// В случае ошибки очищаем сессию
-				delete(b.userSession, message.Chat.ID)
-				if _, err := b.Api.Send(tgbotapi.NewMessage(message.Chat.ID, "Произошла ошибка, сессия сброшена")); err != nil {
+				delete(b.UserSession, update.Message.From.ID)
+				if _, err := b.Api.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Произошла ошибка, сессия сброшена")); err != nil {
 					log.Printf("[ERROR] failed to send error message: %v", err)
 				}
 			}
@@ -165,5 +163,5 @@ func (b *Bot) handleMessage(ctx context.Context, message *tgbotapi.Message) {
 	}
 
 	// Если нет активной сессии или команды, просто логируем сообщение
-	log.Printf("Received message from %d: %s", message.Chat.ID, message.Text)
+	log.Printf("Received message from %d: %s", update.Message.Chat.ID, update.Message.Text)
 }
