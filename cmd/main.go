@@ -9,6 +9,7 @@ import (
 	"github.com/SibHelly/TgUrlShorter/internal/callbacks"
 	"github.com/SibHelly/TgUrlShorter/internal/cfg"
 	"github.com/SibHelly/TgUrlShorter/internal/messages"
+	"github.com/SibHelly/TgUrlShorter/internal/middleware"
 	"github.com/SibHelly/TgUrlShorter/internal/service"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -23,14 +24,16 @@ func main() {
 
 	myBot := bot.NewBot(botApi)
 	// Регситрация обработчки для команды /start
-	myBot.RegisterAction("start", actions.StartUrlShorter())
+	myBot.RegisterAction("start", middleware.NotSessionOnlyAction(actions.StartUrlShorter()))
 	// Регистрация обработчика для команды /myurls
-	myBot.RegisterAction("myurls", actions.GetMyURLsHandler(urlService))
-	myBot.RegisterAction("shorten", actions.CreateShortURLHandler())
+	myBot.RegisterAction("myurls", middleware.NotSessionOnlyAction(actions.GetMyURLsHandler(urlService)))
+	myBot.RegisterAction("shorten", middleware.NotSessionOnlyAction(actions.CreateShortURLHandler()))
 	// Регистрация обработчки нажатия кнопок
-	myBot.RegisterCallback("urls_", callbacks.GetMyURLsHandlerCallback(urlService))
-	myBot.RegisterCallback("delete_", callbacks.DeleteURLCallback(urlService))
-	myBot.RegisterCallback("info_", callbacks.GetAllInfoUrlCallback(urlService))
+	myBot.RegisterCallback("urls_", middleware.NotSessionOnlyCallback(callbacks.GetMyURLsHandlerCallback(urlService)))
+	myBot.RegisterCallback("delete_", middleware.NotSessionOnlyCallback(callbacks.DeleteURLCallback(urlService)))
+	myBot.RegisterCallback("info_", middleware.NotSessionOnlyCallback(callbacks.GetAllInfoUrlCallback(urlService)))
+	myBot.RegisterCallback("skip_", middleware.SessionOnlyCallback(callbacks.SkipStepCreateCallback()))
+	myBot.RegisterCallback("cancel_", middleware.SessionOnlyCallback(callbacks.CancelCreateCallback()))
 	// Регистрация обработчиков ввода
 	myBot.RegisterMessageFunc("url", messages.HandleURLStep())
 	myBot.RegisterMessageFunc("alias", messages.HandleAliasStep())

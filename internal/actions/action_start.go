@@ -11,7 +11,7 @@ import (
 
 // GetStartUrlShorterHandler создает обработчик для команды /start
 func StartUrlShorter() bot.ActionFunc {
-	return func(ctx context.Context, bot *bot.Bot, update tgbotapi.Update) error {
+	return func(ctx context.Context, bot *bot.Bot, update *tgbotapi.Update) error {
 		var builder strings.Builder
 
 		// Fixed Markdown syntax - each * must have a matching closing *

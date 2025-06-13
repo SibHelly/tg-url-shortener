@@ -19,7 +19,7 @@ type Bot struct {
 	UserSession map[int64]*models.ShortenRequest
 }
 
-type ActionFunc func(ctx context.Context, bot *Bot, update tgbotapi.Update) error
+type ActionFunc func(ctx context.Context, bot *Bot, update *tgbotapi.Update) error
 type CallbackFunc func(ctx context.Context, bot *Bot, callback *tgbotapi.CallbackQuery) error
 type MessageFunc func(ctx context.Context, bot *Bot, update *tgbotapi.Update) error
 
@@ -76,35 +76,39 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 		}
 	}()
 
+	// Обработка callback'ов
 	if update.CallbackQuery != nil {
 		b.handleCallback(ctx, update.CallbackQuery)
 		return
 	}
 
-	var action ActionFunc
+	// Проверяем, что это сообщение и Message не nil
+	if update.Message == nil {
+		return
+	}
 
-	if !update.Message.IsCommand() && b.UserSession[update.Message.From.ID].Step != "" {
+	// Обработка обычных сообщений (не команд)
+	if !update.Message.IsCommand() {
 		b.handleMessage(ctx, &update)
 		return
 	}
 
+	// Обработка команд
 	cmd := update.Message.Command()
-
 	actionView, ok := b.actions[cmd]
 	if !ok {
+		// Команда не найдена
 		return
 	}
 
-	action = actionView
-
-	if err := action(ctx, b, update); err != nil {
+	// Выполняем команду (middleware уже встроен в actionView)
+	if err := actionView(ctx, b, &update); err != nil {
 		log.Printf("[ERROR] failed to execute action: %v", err)
 
 		if _, err := b.Api.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Internal error")); err != nil {
 			log.Printf("[ERROR] failed to send error message: %v", err)
 		}
 	}
-
 }
 
 func (b *Bot) handleCallback(ctx context.Context, callback *tgbotapi.CallbackQuery) {
@@ -154,7 +158,7 @@ func (b *Bot) handleMessage(ctx context.Context, update *tgbotapi.Update) {
 				log.Printf("[ERROR] failed to execute message handler for step %s: %v", currentStep.Step, err)
 				// В случае ошибки очищаем сессию
 				delete(b.UserSession, update.Message.From.ID)
-				if _, err := b.Api.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Произошла ошибка, сессия сброшена")); err != nil {
+				if _, err := b.Api.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Error, session cleared")); err != nil {
 					log.Printf("[ERROR] failed to send error message: %v", err)
 				}
 			}
@@ -165,3 +169,50 @@ func (b *Bot) handleMessage(ctx context.Context, update *tgbotapi.Update) {
 	// Если нет активной сессии или команды, просто логируем сообщение
 	log.Printf("Received message from %d: %s", update.Message.Chat.ID, update.Message.Text)
 }
+
+func (b *Bot) GetMessageHandler(step string) (MessageFunc, bool) {
+	handler, exists := b.handlersMsg[step]
+	return handler, exists
+}
+
+// func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
+// 	defer func() {
+// 		if p := recover(); p != nil {
+// 			log.Printf("[ERROR] panic recovered: %v\n%s", p, string(debug.Stack()))
+// 		}
+// 	}()
+
+// 	var action ActionFunc
+
+// 	if update.CallbackQuery != nil {
+// 		b.handleCallback(ctx, update.CallbackQuery)
+// 		return
+// 	}
+
+// 	// if _, ok := b.UserSession[update.Message.From.ID]; ok {
+// 	// 	b.handleMessage(ctx, &update)
+// 	// 	return
+// 	// }
+// 	if update.CallbackQuery == nil && !update.Message.IsCommand() {
+// 		b.handleMessage(ctx, &update)
+// 		return
+// 	}
+
+// 	cmd := update.Message.Command()
+
+// 	actionView, ok := b.actions[cmd]
+// 	if !ok {
+// 		return
+// 	}
+
+// 	action = actionView
+
+// 	if err := action(ctx, b, &update); err != nil {
+// 		log.Printf("[ERROR] failed to execute action: %v", err)
+
+// 		if _, err := b.Api.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Internal error")); err != nil {
+// 			log.Printf("[ERROR] failed to send error message: %v", err)
+// 		}
+// 	}
+
+// }

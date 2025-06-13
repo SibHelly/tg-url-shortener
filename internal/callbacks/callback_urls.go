@@ -1,4 +1,4 @@
-package actions
+package callbacks
 
 import (
 	"context"
@@ -11,21 +11,27 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-// GetMyURLsHandler создает обработчик для команды /myurls .
-func GetMyURLsHandler(urlShorter service.UrlShorter) bot.ActionFunc {
-	return func(ctx context.Context, bot *bot.Bot, update *tgbotapi.Update) error {
+func GetMyURLsHandlerCallback(urlShorter service.UrlShorter) bot.CallbackFunc {
+	return func(ctx context.Context, bot *bot.Bot, callback *tgbotapi.CallbackQuery) error {
 		// Получаем список URL
+		answerCallback := tgbotapi.CallbackConfig{
+			CallbackQueryID: callback.ID,
+		}
+		if _, err := bot.Api.Request(answerCallback); err != nil {
+			log.Printf("[ERROR] failed to answer callback: %v", err)
+		}
+
 		urls, err := urlShorter.GetAll()
 		if err != nil {
 			log.Printf("Failed to get URLs: %v", err)
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Failed to get your URLs. Please try again later.")
+			msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "Failed to get your URLs. Please try again later.")
 			_, err := bot.Api.Send(msg)
 			return err
 		}
 
 		// Если список пуст
 		if len(urls) == 0 {
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "You don't have any shortened URLs yet.")
+			msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "You don't have any shortened URLs yet.")
 			_, err := bot.Api.Send(msg)
 			return err
 		}
@@ -47,13 +53,12 @@ func GetMyURLsHandler(urlShorter service.UrlShorter) bot.ActionFunc {
 				tgbotapi.NewInlineKeyboardRow(deleteButton, infoButton),
 			)
 
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, builder.String())
+			msg := tgbotapi.NewMessage(callback.Message.Chat.ID, builder.String())
 			msg.ParseMode = tgbotapi.ModeMarkdown
 			msg.ReplyMarkup = keyboard
 
 			if _, err := bot.Api.Send(msg); err != nil {
 				log.Printf("Failed to send URL message: %v", err)
-				return err
 			}
 		}
 

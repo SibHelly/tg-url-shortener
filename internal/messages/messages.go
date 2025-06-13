@@ -81,7 +81,7 @@ func HandleAliasStep() bot.MessageFunc {
 
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("⏭ Skip", "skip_max_visits"),
+				tgbotapi.NewInlineKeyboardButtonData("⏭ Skip", fmt.Sprintf("skip_%s", bot.UserSession[update.Message.From.ID].Step)),
 				tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", "cancel_shorten"),
 			),
 		)
@@ -94,16 +94,30 @@ func HandleAliasStep() bot.MessageFunc {
 
 func HandleMaxVisitsStep() bot.MessageFunc {
 	return func(ctx context.Context, bot *bot.Bot, update *tgbotapi.Update) error {
-		visits, err := strconv.Atoi(update.Message.Text)
+		if !bot.UserSession[update.Message.From.ID].SkipClicked {
+			visits, err := strconv.Atoi(update.Message.Text)
 
-		if err != nil || visits <= 0 {
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID,
-				"❌ Please enter a valid positive number or use the Skip button.")
-			bot.Api.Send(msg)
-			return nil
+			if err != nil || visits <= 0 {
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID,
+					"❌ Please enter a valid positive number or use the Skip button.")
+				keyboard := tgbotapi.NewInlineKeyboardMarkup(
+					tgbotapi.NewInlineKeyboardRow(
+						tgbotapi.NewInlineKeyboardButtonData("⏭ Skip", fmt.Sprintf("skip_%s", bot.UserSession[update.Message.From.ID].Step)),
+						tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", "cancel_shorten"),
+					),
+				)
+				msg.ReplyMarkup = keyboard
+				bot.Api.Send(msg)
+				return nil
+			}
+
+			bot.UserSession[update.Message.From.ID].MaxVisits = &visits
+
+		}
+		if bot.UserSession[update.Message.From.ID].SkipClicked {
+			bot.UserSession[update.Message.From.ID].SkipClicked = false
 		}
 
-		bot.UserSession[update.Message.From.ID].MaxVisits = visits
 		bot.UserSession[update.Message.From.ID].Step = "expires_at"
 
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID,
@@ -116,48 +130,53 @@ func HandleMaxVisitsStep() bot.MessageFunc {
 
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("⏭ Skip", "skip_expires_at"),
+				tgbotapi.NewInlineKeyboardButtonData("⏭ Skip", fmt.Sprintf("skip_%s", bot.UserSession[update.Message.From.ID].Step)),
 				tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", "cancel_shorten"),
 			),
 		)
 		msg.ReplyMarkup = keyboard
 
-		_, err = bot.Api.Send(msg)
+		_, err := bot.Api.Send(msg)
 		return err
 	}
 }
 
 func HandleExpiresAtStep() bot.MessageFunc {
 	return func(ctx context.Context, bot *bot.Bot, update *tgbotapi.Update) error {
-		var expiresAt time.Time
-		var err error
+		if !bot.UserSession[update.Message.From.ID].SkipClicked {
+			var expiresAt time.Time
+			var err error
 
-		// Try different date formats
-		formats := []string{"2006-01-02", "02.01.2006", "2006/01/02"}
+			// Try different date formats
+			formats := []string{"2006-01-02", "02.01.2006", "2006/01/02"}
 
-		for _, format := range formats {
-			expiresAt, err = time.Parse(format, update.Message.Text)
-			if err == nil {
-				break
+			for _, format := range formats {
+				expiresAt, err = time.Parse(format, update.Message.Text)
+				if err == nil {
+					break
+				}
 			}
-		}
 
-		if err != nil {
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID,
-				"❌ Invalid date format. Please use YYYY-MM-DD or DD.MM.YYYY format, or use the Skip button.")
-			bot.Api.Send(msg)
-			return nil
-		}
+			if err != nil {
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID,
+					"❌ Invalid date format. Please use YYYY-MM-DD or DD.MM.YYYY format, or use the Skip button.")
+				bot.Api.Send(msg)
+				return nil
+			}
 
-		// Check if date is in the future
-		if expiresAt.Before(time.Now()) {
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID,
-				"❌ Expiration date must be in the future. Please try again.")
-			bot.Api.Send(msg)
-			return nil
-		}
+			// Check if date is in the future
+			if expiresAt.Before(time.Now()) {
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID,
+					"❌ Expiration date must be in the future. Please try again.")
+				bot.Api.Send(msg)
+				return nil
+			}
 
-		bot.UserSession[update.Message.From.ID].ExpiresAt = &expiresAt
+			bot.UserSession[update.Message.From.ID].ExpiresAt = &expiresAt
+		}
+		if bot.UserSession[update.Message.From.ID].SkipClicked {
+			bot.UserSession[update.Message.From.ID].SkipClicked = false
+		}
 		bot.UserSession[update.Message.From.ID].Step = "title"
 
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID,
@@ -169,27 +188,34 @@ func HandleExpiresAtStep() bot.MessageFunc {
 
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("⏭ Skip", "skip_title"),
+				tgbotapi.NewInlineKeyboardButtonData("⏭ Skip", fmt.Sprintf("skip_%s", bot.UserSession[update.Message.From.ID].Step)),
 				tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", "cancel_shorten"),
 			),
 		)
 		msg.ReplyMarkup = keyboard
 
-		_, err = bot.Api.Send(msg)
+		_, err := bot.Api.Send(msg)
 		return err
 	}
 }
 
 func HandleTitleStep() bot.MessageFunc {
 	return func(ctx context.Context, bot *bot.Bot, update *tgbotapi.Update) error {
-		if len(update.Message.Text) > 200 {
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID,
-				"❌ Title is too long (max 200 characters). Please try again.")
-			bot.Api.Send(msg)
-			return nil
+		if !bot.UserSession[update.Message.From.ID].SkipClicked {
+			if len(update.Message.Text) > 200 {
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID,
+					"❌ Title is too long (max 200 characters). Please try again.")
+				bot.Api.Send(msg)
+				return nil
+			}
+
+			bot.UserSession[update.Message.From.ID].Title = &update.Message.Text
+
+		}
+		if bot.UserSession[update.Message.From.ID].SkipClicked {
+			bot.UserSession[update.Message.From.ID].SkipClicked = false
 		}
 
-		bot.UserSession[update.Message.From.ID].Title = update.Message.Text
 		bot.UserSession[update.Message.From.ID].Step = "description"
 
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID,
@@ -201,7 +227,7 @@ func HandleTitleStep() bot.MessageFunc {
 
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("⏭ Skip", "skip_description"),
+				tgbotapi.NewInlineKeyboardButtonData("⏭ Skip", fmt.Sprintf("skip_%s", bot.UserSession[update.Message.From.ID].Step)),
 				tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", "cancel_shorten"),
 			),
 		)
@@ -214,37 +240,102 @@ func HandleTitleStep() bot.MessageFunc {
 
 func HandleDescriptionStep(urlShorter service.UrlShorter) bot.MessageFunc {
 	return func(ctx context.Context, bot *bot.Bot, update *tgbotapi.Update) error {
-		if len(update.Message.Text) > 500 {
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID,
-				"❌ Description is too long (max 500 characters). Please try again.")
-			bot.Api.Send(msg)
-			return nil
+		if !bot.UserSession[update.Message.From.ID].SkipClicked {
+			if len(update.Message.Text) > 500 {
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID,
+					"❌ Description is too long (max 500 characters). Please try again.")
+				bot.Api.Send(msg)
+				return nil
+			}
+
+			bot.UserSession[update.Message.From.ID].Description = &update.Message.Text
 		}
+		if bot.UserSession[update.Message.From.ID].SkipClicked {
+			bot.UserSession[update.Message.From.ID].SkipClicked = false
+		}
+		// Создание модели URL
+		url := buildUrlFromSession(bot.UserSession[update.Message.From.ID])
 
-		bot.UserSession[update.Message.From.ID].Description = update.Message.Text
+		log.Printf("Creating URL: %+v", url)
 
-		err := urlShorter.Create(models.Url{
-			Original_url: bot.UserSession[update.Message.From.ID].URL,
-			Alias:        bot.UserSession[update.Message.From.ID].Alias,
-			Visit_count:  bot.UserSession[update.Message.From.ID].MaxVisits,
-			Expires_at:   bot.UserSession[update.Message.From.ID].ExpiresAt,
-			Title:        bot.UserSession[update.Message.From.ID].Title,
-			Description:  bot.UserSession[update.Message.From.ID].Description,
-		})
+		// Создание записи
+		err := urlShorter.Create(url)
 		if err != nil {
-			log.Printf("Failed to get URLs: %v", err)
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Failed to create shorten, err: %v", err))
-			_, err := bot.Api.Send(msg)
+			log.Printf("Failed to create alias: %v", err)
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID,
+				fmt.Sprintf("❌ Failed to create shortened URL: %v", err))
+			bot.Api.Send(msg)
+			delete(bot.UserSession, update.Message.From.ID)
 			return err
 		}
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID,
-			"✅ Your alias for url added!\n\n"+
-				fmt.Sprintf("*Usage*\nOld url:%s\nNew url:%s\n\n", bot.UserSession[update.Message.From.ID].URL, bot.UserSession[update.Message.From.ID].Alias))
-		msg.ParseMode = tgbotapi.ModeMarkdown
-		delete(bot.UserSession, update.Message.From.ID)
 
+		// Успешное создание
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID,
+			"✅ Your shortened URL has been created!\n\n"+
+				fmt.Sprintf("*Original URL:* %s\n*Short URL:* %s",
+					url.Original_url, url.Alias))
+		msg.ParseMode = tgbotapi.ModeMarkdown
+
+		delete(bot.UserSession, update.Message.From.ID)
 		_, err = bot.Api.Send(msg)
 		return err
 
 	}
 }
+
+func buildUrlFromSession(session *models.ShortenRequest) models.Url {
+	url := models.Url{
+		Original_url: session.URL,
+		Alias:        session.Alias,
+		Created_at:   time.Now(),
+		Is_active:    true,
+		Visit_count:  100, // значение по умолчанию
+	}
+
+	// Опциональные поля
+	if session.MaxVisits != nil {
+		url.Visit_count = *session.MaxVisits
+	}
+
+	if session.ExpiresAt != nil {
+		url.Expires_at = session.ExpiresAt
+	}
+
+	if session.Title != nil {
+		url.Title = *session.Title
+	}
+
+	if session.Description != nil {
+		url.Description = *session.Description
+	}
+
+	return url
+}
+
+// func HandleCreatingStep(urlShorter service.UrlShorter) bot.MessageFunc {
+// 	return func(ctx context.Context, bot *bot.Bot, update *tgbotapi.Update) error {
+// 		err := urlShorter.Create(models.Url{
+// 			Original_url: bot.UserSession[update.Message.From.ID].URL,
+// 			Alias:        bot.UserSession[update.Message.From.ID].Alias,
+// 			Visit_count:  bot.UserSession[update.Message.From.ID].MaxVisits,
+// 			Expires_at:   bot.UserSession[update.Message.From.ID].ExpiresAt,
+// 			Title:        bot.UserSession[update.Message.From.ID].Title,
+// 			Description:  bot.UserSession[update.Message.From.ID].Description,
+// 		})
+// 		if err != nil {
+// 			log.Printf("Failed to create alias for this URLs: %v", err)
+// 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Failed to create shorten, err: %v", err))
+// 			_, err := bot.Api.Send(msg)
+// 			return err
+// 		}
+// 		msg := tgbotapi.NewMessage(update.Message.Chat.ID,
+// 			"✅ Your alias for url added!\n\n"+
+// 				fmt.Sprintf("*Usage*\nOld url:%s\nNew url:%s\n\n", bot.UserSession[update.Message.From.ID].URL, bot.UserSession[update.Message.From.ID].Alias))
+// 		msg.ParseMode = tgbotapi.ModeMarkdown
+// 		delete(bot.UserSession, update.Message.From.ID)
+
+// 		_, err = bot.Api.Send(msg)
+// 		return err
+
+// 	}
+// }

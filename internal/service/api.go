@@ -35,6 +35,7 @@ func (s *UrlService) Create(url models.Url) error {
 	if err != nil {
 		return err
 	}
+
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/shorten", s.baseURL), &buf)
 	if err != nil {
 		return err
@@ -45,6 +46,8 @@ func (s *UrlService) Create(url models.Url) error {
 		return err
 	}
 	defer resp.Body.Close()
+
+	// log.Print(resp)
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("server returned status on create: %d", resp.StatusCode)

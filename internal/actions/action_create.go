@@ -10,9 +10,10 @@ import (
 
 // CreateShorten создает обработчик для команды /shorten .
 func CreateShortURLHandler() bot.ActionFunc {
-	return func(ctx context.Context, bot *bot.Bot, update tgbotapi.Update) error {
+	return func(ctx context.Context, bot *bot.Bot, update *tgbotapi.Update) error {
 		bot.UserSession[update.Message.From.ID] = &models.ShortenRequest{
-			Step: "url",
+			Step:        "url",
+			SkipClicked: false,
 		}
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID,
 			"🔗 *Create Short URL*\n\n"+
