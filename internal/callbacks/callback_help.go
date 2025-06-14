@@ -1,4 +1,4 @@
-package actions
+package callbacks
 
 import (
 	"context"
@@ -9,13 +9,17 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-// GetStartUrlShorterHandler создает обработчик для команды /start
-func StartUrlShorter() bot.ActionFunc {
-	return func(ctx context.Context, bot *bot.Bot, update *tgbotapi.Update) error {
+func GetHelpInfoCallback() bot.CallbackFunc {
+	return func(ctx context.Context, bot *bot.Bot, callback *tgbotapi.CallbackQuery) error {
+		answerCallback := tgbotapi.CallbackConfig{
+			CallbackQueryID: callback.ID,
+		}
+		if _, err := bot.Api.Request(answerCallback); err != nil {
+			log.Printf("[ERROR] failed to answer callback: %v", err)
+		}
+
 		var builder strings.Builder
 
-		// Fixed Markdown syntax - each * must have a matching closing *
-		builder.WriteString("👋 *Welcome to URL Shortener Bot!*\n\n")
 		builder.WriteString("🔗 *What I can do:*\n")
 		builder.WriteString("• Create beautiful custom aliases\n")
 		builder.WriteString("• Track click counts and analytics\n")
@@ -31,17 +35,17 @@ func StartUrlShorter() bot.ActionFunc {
 				tgbotapi.NewInlineKeyboardButtonData("🔗 Create Link", "create_url"),
 				tgbotapi.NewInlineKeyboardButtonData("📋 My Links", "urls_myurls"),
 			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("❓ Help", "help_urlshortener"),
-			),
+			// tgbotapi.NewInlineKeyboardRow(
+			// 	tgbotapi.NewInlineKeyboardButtonData("❓ Help", "help_urlshortener"),
+			// ),
 		)
 
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, builder.String())
+		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, builder.String())
 		msg.ParseMode = tgbotapi.ModeMarkdown
 		msg.ReplyMarkup = keyboard
 
 		if _, err := bot.Api.Send(msg); err != nil {
-			log.Printf("Failed to send URL message for start command: %v", err)
+			log.Printf("Failed to send help info message for help callback: %v", err)
 			return err
 		}
 		return nil

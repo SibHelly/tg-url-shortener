@@ -34,6 +34,8 @@ func main() {
 	myBot.RegisterCallback("info_", middleware.NotSessionOnlyCallback(callbacks.GetAllInfoUrlCallback(urlService)))
 	myBot.RegisterCallback("skip_", middleware.SessionOnlyCallback(callbacks.SkipStepCreateCallback()))
 	myBot.RegisterCallback("cancel_", middleware.SessionOnlyCallback(callbacks.CancelCreateCallback()))
+	myBot.RegisterCallback("create_", middleware.NotSessionOnlyCallback(callbacks.CreateAliasCallback()))
+	myBot.RegisterCallback("help_", middleware.NotSessionOnlyCallback(callbacks.GetHelpInfoCallback()))
 	// Регистрация обработчиков ввода
 	myBot.RegisterMessageFunc("url", messages.HandleURLStep())
 	myBot.RegisterMessageFunc("alias", messages.HandleAliasStep())
